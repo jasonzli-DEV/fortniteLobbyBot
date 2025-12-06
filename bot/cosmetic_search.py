@@ -1,9 +1,9 @@
 """Cosmetic search system with fuzzy matching and caching."""
 import logging
 import aiohttp
+import difflib
 from datetime import datetime, timedelta
 from typing import List, Optional
-from rapidfuzz import fuzz
 
 from config import get_settings
 from database import db, CosmeticCache
@@ -151,8 +151,8 @@ class CosmeticSearchService:
         }
         
         def score_item(item: CosmeticCache) -> tuple:
-            # Fuzzy match score (higher is better, so negate for sorting)
-            fuzzy_score = -fuzz.ratio(query.lower(), item.name.lower())
+            # Fuzzy match score using difflib (higher is better, so negate for sorting)
+            fuzzy_score = -difflib.SequenceMatcher(None, query.lower(), item.name.lower()).ratio() * 100
             # Exact match bonus
             exact_bonus = 0 if query.lower() in item.name.lower() else 100
             # Rarity order
@@ -183,10 +183,10 @@ class CosmeticSearchService:
         # Get more results than needed for better fuzzy matching
         results, _, _ = await self.search(cosmetic_type, query, page=1)
         
-        # Score and sort by fuzzy ratio
+        # Score and sort by fuzzy ratio using difflib
         scored = []
         for item in results:
-            score = fuzz.ratio(query.lower(), item.name.lower())
+            score = difflib.SequenceMatcher(None, query.lower(), item.name.lower()).ratio() * 100
             # Bonus for partial match
             if query.lower() in item.name.lower():
                 score += 30
