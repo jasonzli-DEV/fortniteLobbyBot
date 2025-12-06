@@ -20,7 +20,7 @@ class PresetCommands(commands.Cog):
         self.bot = bot
         self.settings = get_settings()
     
-    @app_commands.command(name="savepreset", description="Save current bot cosmetics as a preset")
+    @app_commands.command(name="save-preset", description="Save current bot cosmetics as a preset")
     @app_commands.describe(
         name="Name for the preset",
         epic_username="The Epic username of the bot to save from"
@@ -55,7 +55,7 @@ class PresetCommands(commands.Cog):
         if not session:
             await interaction.response.send_message(
                 f"❌ No active session for `{epic_username}`.\n"
-                f"Start the bot first with `/startbot {epic_username}`",
+                f"Start the bot first with `/start-bot {epic_username}`",
                 ephemeral=True
             )
             return
@@ -97,7 +97,7 @@ class PresetCommands(commands.Cog):
                 view=None
             )
     
-    @app_commands.command(name="loadpreset", description="Apply a saved preset to a bot")
+    @app_commands.command(name="load-preset", description="Apply a saved preset to a bot")
     @app_commands.describe(
         name="Name of the preset",
         epic_username="Target bot (or 'all' for all running bots)"
@@ -116,7 +116,7 @@ class PresetCommands(commands.Cog):
         if not preset:
             await interaction.response.send_message(
                 f"❌ Preset `{name}` not found.\n"
-                f"Use `/listpresets` to see your saved presets.",
+                f"Use `/list-presets` to see your saved presets.",
                 ephemeral=True
             )
             return
@@ -202,7 +202,7 @@ class PresetCommands(commands.Cog):
                     view=None
                 )
     
-    @app_commands.command(name="listpresets", description="Show all your saved presets")
+    @app_commands.command(name="list-presets", description="Show all your saved presets")
     async def list_presets(self, interaction: discord.Interaction):
         """List all saved presets."""
         discord_id = str(interaction.user.id)
@@ -212,7 +212,7 @@ class PresetCommands(commands.Cog):
         if not presets:
             await interaction.response.send_message(
                 "📭 You don't have any saved presets.\n"
-                "Use `/savepreset <name> <epic_username>` to save one!",
+                "Use `/save-preset <name> <epic_username>` to save one!",
                 ephemeral=True
             )
             return
@@ -241,7 +241,7 @@ class PresetCommands(commands.Cog):
         
         async def on_load(inter: discord.Interaction, preset_name: str):
             await inter.response.send_message(
-                f"Use `/loadpreset {preset_name} <epic_username>` to apply this preset.",
+                f"Use `/load-preset {preset_name} <epic_username>` to apply this preset.",
                 ephemeral=True
             )
         
@@ -251,7 +251,7 @@ class PresetCommands(commands.Cog):
         view = PresetListView(presets, on_load, on_delete)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
     
-    @app_commands.command(name="deletepreset", description="Delete a saved preset")
+    @app_commands.command(name="delete-preset", description="Delete a saved preset")
     @app_commands.describe(name="Name of the preset to delete")
     async def delete_preset(self, interaction: discord.Interaction, name: str):
         """Delete a preset."""

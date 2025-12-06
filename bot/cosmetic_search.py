@@ -3,7 +3,7 @@ import logging
 import aiohttp
 from datetime import datetime, timedelta
 from typing import List, Optional
-from fuzzywuzzy import fuzz
+from rapidfuzz import fuzz
 
 from config import get_settings
 from database import db, CosmeticCache

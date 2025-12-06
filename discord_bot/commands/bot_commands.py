@@ -21,7 +21,7 @@ class BotCommands(commands.Cog):
         self.bot = bot
         self.settings = get_settings()
     
-    @app_commands.command(name="startbot", description="Start a specific Fortnite bot")
+    @app_commands.command(name="start-bot", description="Start a specific Fortnite bot")
     @app_commands.describe(epic_username="The Epic username of the account to start")
     async def start_bot(self, interaction: discord.Interaction, epic_username: str):
         """Start a specific bot."""
@@ -32,7 +32,7 @@ class BotCommands(commands.Cog):
         if not account:
             await interaction.response.send_message(
                 f"❌ Account `{epic_username}` not found.\n"
-                f"Use `/listaccounts` to see your connected accounts.",
+                f"Use `/list-accounts` to see your connected accounts.",
                 ephemeral=True
             )
             return
@@ -63,7 +63,7 @@ class BotCommands(commands.Cog):
             )
             embed.add_field(
                 name="Next Steps",
-                value="• Use `/botstatus` to check status\n• Use `/setskin` to change appearance",
+                value="• Use `/bot-status` to check status\n• Use `/set-skin` to change appearance",
                 inline=False
             )
             
@@ -74,7 +74,7 @@ class BotCommands(commands.Cog):
         else:
             await interaction.followup.send(f"❌ {message}", ephemeral=True)
     
-    @app_commands.command(name="stopbot", description="Stop a specific Fortnite bot")
+    @app_commands.command(name="stop-bot", description="Stop a specific Fortnite bot")
     @app_commands.describe(epic_username="The Epic username of the bot to stop")
     async def stop_bot(self, interaction: discord.Interaction, epic_username: str):
         """Stop a specific bot."""
@@ -94,7 +94,7 @@ class BotCommands(commands.Cog):
         if not bot_instance:
             await interaction.response.send_message(
                 f"⚠️ Bot `{epic_username}` is not currently running.\n"
-                f"Use `/startbot {epic_username}` to start it.",
+                f"Use `/start-bot {epic_username}` to start it.",
                 ephemeral=True
             )
             return
@@ -110,7 +110,7 @@ class BotCommands(commands.Cog):
         else:
             await interaction.followup.send(f"❌ {message}", ephemeral=True)
     
-    @app_commands.command(name="startall", description="Start all your Fortnite bots")
+    @app_commands.command(name="start-all", description="Start all your Fortnite bots")
     async def start_all(self, interaction: discord.Interaction):
         """Start all bots for the user."""
         discord_id = str(interaction.user.id)
@@ -119,7 +119,7 @@ class BotCommands(commands.Cog):
         if not accounts:
             await interaction.response.send_message(
                 "📭 You don't have any accounts to start.\n"
-                "Use `/addaccount` to add an Epic Games account.",
+                "Use `/add-account` to add an Epic Games account.",
                 ephemeral=True
             )
             return
@@ -177,7 +177,7 @@ class BotCommands(commands.Cog):
         
         await interaction.followup.send(embed=embed, ephemeral=True)
     
-    @app_commands.command(name="stopall", description="Stop all your running Fortnite bots")
+    @app_commands.command(name="stop-all", description="Stop all your running Fortnite bots")
     async def stop_all(self, interaction: discord.Interaction):
         """Stop all bots for the user."""
         discord_id = str(interaction.user.id)
@@ -216,9 +216,9 @@ class BotCommands(commands.Cog):
                 view=None
             )
     
-    @app_commands.command(name="botstatus", description="Show status of your bots")
+    @app_commands.command(name="bot-status", description="Show status of your bots")
     @app_commands.describe(epic_username="Specific bot to check (optional)")
-    async def bot_status(self, interaction: discord.Interaction, epic_username: str = None):
+    async def show_bot_status(self, interaction: discord.Interaction, epic_username: str = None):
         """Show bot status."""
         discord_id = str(interaction.user.id)
         
@@ -325,7 +325,7 @@ class BotCommands(commands.Cog):
         if not accounts:
             await interaction.response.send_message(
                 "📭 You don't have any accounts.\n"
-                "Use `/addaccount` to add an Epic Games account.",
+                "Use `/add-account` to add an Epic Games account.",
                 ephemeral=True
             )
             return

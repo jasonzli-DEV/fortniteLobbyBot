@@ -19,7 +19,8 @@ class EncryptionService:
         self,
         device_id: str,
         account_id: str,
-        secret: str
+        secret: str,
+        client_token: str = None
     ) -> str:
         """
         Encrypt Epic Games device auth credentials.
@@ -28,6 +29,7 @@ class EncryptionService:
             device_id: Epic device ID
             account_id: Epic account ID
             secret: Device auth secret
+            client_token: Optional client token used for auth
             
         Returns:
             Encrypted string containing all credentials
@@ -37,6 +39,8 @@ class EncryptionService:
             "account_id": account_id,
             "secret": secret
         }
+        if client_token:
+            credentials["client_token"] = client_token
         json_data = json.dumps(credentials)
         encrypted = self.fernet.encrypt(json_data.encode())
         return encrypted.decode()
@@ -70,9 +74,9 @@ class EncryptionService:
 encryption = EncryptionService()
 
 
-def encrypt_credentials(device_id: str, account_id: str, secret: str) -> str:
+def encrypt_credentials(device_id: str, account_id: str, secret: str, client_token: str = None) -> str:
     """Convenience function to encrypt credentials."""
-    return encryption.encrypt_credentials(device_id, account_id, secret)
+    return encryption.encrypt_credentials(device_id, account_id, secret, client_token)
 
 
 def decrypt_credentials(encrypted_data: str) -> dict:

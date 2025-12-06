@@ -37,7 +37,7 @@ class CosmeticCommands(commands.Cog):
         if not bot_instance:
             await interaction.response.send_message(
                 f"⚠️ Bot `{epic_username}` is not currently online.\n"
-                f"Use `/startbot {epic_username}` to start it first.",
+                f"Use `/start-bot {epic_username}` to start it first.",
                 ephemeral=True
             )
             return None, None
@@ -167,7 +167,7 @@ class CosmeticCommands(commands.Cog):
         
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
     
-    @app_commands.command(name="setskin", description="Change bot outfit")
+    @app_commands.command(name="set-skin", description="Change bot outfit")
     @app_commands.describe(epic_username="The Epic username of the bot")
     async def set_skin(self, interaction: discord.Interaction, epic_username: str):
         """Change bot skin with interactive search."""
@@ -176,7 +176,7 @@ class CosmeticCommands(commands.Cog):
         
         await self._cosmetic_search_flow(interaction, epic_username, "skin", apply_skin)
     
-    @app_commands.command(name="setbackbling", description="Change bot back bling")
+    @app_commands.command(name="set-backbling", description="Change bot back bling")
     @app_commands.describe(epic_username="The Epic username of the bot")
     async def set_backbling(self, interaction: discord.Interaction, epic_username: str):
         """Change bot back bling with interactive search."""
@@ -185,7 +185,7 @@ class CosmeticCommands(commands.Cog):
         
         await self._cosmetic_search_flow(interaction, epic_username, "backbling", apply_backbling)
     
-    @app_commands.command(name="setpickaxe", description="Change bot pickaxe")
+    @app_commands.command(name="set-pickaxe", description="Change bot pickaxe")
     @app_commands.describe(epic_username="The Epic username of the bot")
     async def set_pickaxe(self, interaction: discord.Interaction, epic_username: str):
         """Change bot pickaxe with interactive search."""
@@ -203,7 +203,7 @@ class CosmeticCommands(commands.Cog):
         
         await self._cosmetic_search_flow(interaction, epic_username, "emote", apply_emote)
     
-    @app_commands.command(name="setlevel", description="Set bot battle pass level")
+    @app_commands.command(name="set-level", description="Set bot battle pass level")
     @app_commands.describe(
         epic_username="The Epic username of the bot",
         level="Battle pass level (1-200)"
@@ -244,7 +244,7 @@ class CosmeticCommands(commands.Cog):
                 ephemeral=True
             )
     
-    @app_commands.command(name="setcrowns", description="Set bot crown wins count")
+    @app_commands.command(name="set-crowns", description="Set bot crown wins count")
     @app_commands.describe(
         epic_username="The Epic username of the bot",
         count="Number of crown wins"
@@ -285,7 +285,7 @@ class CosmeticCommands(commands.Cog):
                 ephemeral=True
             )
     
-    @app_commands.command(name="synccosmetics", description="Copy cosmetics from one bot to another")
+    @app_commands.command(name="sync-cosmetics", description="Copy cosmetics from one bot to another")
     @app_commands.describe(
         from_username="Source bot Epic username",
         to_username="Target bot Epic username (or 'all' for all bots)"

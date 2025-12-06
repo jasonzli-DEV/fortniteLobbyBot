@@ -8,6 +8,42 @@ from database import CosmeticCache
 from utils import get_rarity_emoji
 
 
+class AuthCodeModal(ui.Modal, title="Enter Authorization Code"):
+    """Modal for entering Epic Games authorization code."""
+    
+    code = ui.TextInput(
+        label="Authorization Code",
+        placeholder="Paste your authorization code here...",
+        min_length=10,
+        max_length=100,
+        required=True,
+        style=discord.TextStyle.short
+    )
+    
+    def __init__(self, callback):
+        super().__init__()
+        self.callback_func = callback
+        self.auth_code: Optional[str] = None
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        self.auth_code = self.code.value.strip()
+        await self.callback_func(interaction, self.auth_code)
+
+
+class AuthCodeView(ui.View):
+    """View with button to open auth code modal."""
+    
+    def __init__(self, callback, timeout: float = 300.0):
+        super().__init__(timeout=timeout)
+        self.callback_func = callback
+        self.auth_code: Optional[str] = None
+    
+    @ui.button(label="Enter Authorization Code", style=discord.ButtonStyle.primary, emoji="🔑")
+    async def enter_code(self, interaction: discord.Interaction, button: ui.Button):
+        modal = AuthCodeModal(self.callback_func)
+        await interaction.response.send_modal(modal)
+
+
 class ConfirmView(ui.View):
     """A simple confirmation view with Yes/No buttons."""
     

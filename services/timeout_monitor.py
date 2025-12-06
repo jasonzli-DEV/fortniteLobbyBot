@@ -167,7 +167,7 @@ class TimeoutMonitor:
                     
                     await channel.send(
                         f"⚫ {discord_user.mention} Your bot `{epic_username}` has stopped due to inactivity. "
-                        f"Use `/startbot {epic_username}` to restart.",
+                        f"Use `/start-bot {epic_username}` to restart.",
                         delete_after=600  # Delete after 10 minutes
                     )
                     

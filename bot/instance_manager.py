@@ -1,6 +1,7 @@
 """Fortnite bot instance manager using fortnitepy."""
 import asyncio
 import logging
+import base64
 from datetime import datetime
 from typing import Dict, Optional, Callable, Any
 from bson import ObjectId
@@ -13,6 +14,63 @@ from database import db, CurrentCosmetics
 from utils import decrypt_credentials
 
 logger = logging.getLogger(__name__)
+
+
+def _patch_fortnitepy_for_android():
+    """
+    Monkey-patch fortnitepy to work with Android client token.
+    
+    The issue is that fortnitepy's default iOS client is disabled by Epic,
+    and the Android client doesn't have permission for the GraphQL endpoint.
+    
+    This patch makes the GraphQL call return empty data instead of failing.
+    """
+    import fortnitepy.http as http_module
+    
+    original_graphql = http_module.HTTPClient.account_graphql_get_clients_external_auths
+    
+    async def patched_graphql(self, **kwargs):
+        """Return empty external auths instead of calling the GraphQL endpoint."""
+        try:
+            return await original_graphql(self, **kwargs)
+        except fortnitepy.errors.HTTPException as e:
+            # If we get a 404, return empty data
+            if "404" in str(e):
+                logger.warning("GraphQL endpoint returned 404, using empty external auths")
+                return {'myAccount': {'externalAuths': []}}
+            raise
+    
+    http_module.HTTPClient.account_graphql_get_clients_external_auths = patched_graphql
+    logger.info("Patched fortnitepy for Android client compatibility")
+
+
+# Apply the patch when this module loads
+_patch_fortnitepy_for_android()
+
+# fortniteNewSwitchGameClient - supports device_code flow and works for auth
+SWITCH_CLIENT_ID = "98f7e42c2e3a4f86a74eb43fbb41ed39"
+SWITCH_CLIENT_SECRET = "0a2449a2-001a-451e-afec-3e812901c4d7"
+SWITCH_TOKEN = base64.b64encode(f"{SWITCH_CLIENT_ID}:{SWITCH_CLIENT_SECRET}".encode()).decode()
+
+# fortniteAndroidGameClient - used for device auth (has deviceAuths permission)
+ANDROID_CLIENT_ID = "3f69e56c7649492c8cc29f1af08a8a12"
+ANDROID_CLIENT_SECRET = "b51ee9cb12234f50a69efa67ef53812e"
+ANDROID_TOKEN = base64.b64encode(f"{ANDROID_CLIENT_ID}:{ANDROID_CLIENT_SECRET}".encode()).decode()
+
+# fortnitePCGameClient - used for game
+PC_CLIENT_ID = "ec684b8c687f479fadea3cb2ad83f5c6"
+PC_CLIENT_SECRET = "e1f31c211f28413186262d37a13fc84d"
+PC_TOKEN = base64.b64encode(f"{PC_CLIENT_ID}:{PC_CLIENT_SECRET}".encode()).decode()
+
+# launcherAppClient2 - has device_auth grant AND can generate exchange codes
+LAUNCHER_CLIENT_ID = "34a02cf8f4414e29b15921876da36f9a"
+LAUNCHER_CLIENT_SECRET = "daafbccc737745039dffe53d94fc76cf"
+LAUNCHER_TOKEN = base64.b64encode(f"{LAUNCHER_CLIENT_ID}:{LAUNCHER_CLIENT_SECRET}".encode()).decode()
+
+# fortniteiOSGameClient - default fortnitepy client (may be partially disabled but has full permissions)
+IOS_CLIENT_ID = "3446cd72694c4a4485d81b77adbb2141"
+IOS_CLIENT_SECRET = "9209d4a5e25a457fb9b07489d313b41a"
+IOS_TOKEN = base64.b64encode(f"{IOS_CLIENT_ID}:{IOS_CLIENT_SECRET}".encode()).decode()
 
 
 class FortniteBotInstance:
@@ -41,11 +99,17 @@ class FortniteBotInstance:
     async def start(self) -> bool:
         """Start the Fortnite bot client."""
         try:
-            # Create device auth details
+            # Epic has disabled the default iOS client.
+            # Testing with Android for both tokens - maybe PC token is the issue
+            
+            logger.info(f"Starting bot {self.epic_username} with Android token for both ios and fortnite")
+            
             device_auth = fortnitepy.DeviceAuth(
                 device_id=self.credentials["device_id"],
                 account_id=self.credentials["account_id"],
-                secret=self.credentials["secret"]
+                secret=self.credentials["secret"],
+                ios_token=ANDROID_TOKEN,     # Android has device_auth grant
+                fortnite_token=ANDROID_TOKEN # Try Android for both
             )
             
             self.client = fortnitepy.Client(
@@ -89,8 +153,19 @@ class FortniteBotInstance:
             await self.client.start()
         except asyncio.CancelledError:
             logger.info(f"Bot {self.epic_username} task cancelled")
+        except fortnitepy.errors.AuthException as e:
+            logger.error(f"Bot {self.epic_username} auth error: {e}")
+            if hasattr(e, 'original') and e.original:
+                logger.error(f"Original error: {e.original}")
+                if hasattr(e.original, 'message_code'):
+                    logger.error(f"Message code: {e.original.message_code}")
+                if hasattr(e.original, 'raw'):
+                    logger.error(f"Raw response: {e.original.raw}")
         except Exception as e:
             logger.error(f"Bot {self.epic_username} error: {e}")
+            # Log the full exception chain
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
         finally:
             self._running = False
     
@@ -109,11 +184,10 @@ class FortniteBotInstance:
             logger.info(f"Bot {self.epic_username} accepted party invite")
         
         @self.client.event
-        async def event_friend_request(request: fortnitepy.PendingFriend):
-            if request.direction == fortnitepy.FriendRequestDirection.INBOUND:
-                await request.accept()
-                await self.update_activity()
-                logger.info(f"Bot {self.epic_username} accepted friend request")
+        async def event_friend_request(request: fortnitepy.IncomingPendingFriend):
+            await request.accept()
+            await self.update_activity()
+            logger.info(f"Bot {self.epic_username} accepted friend request from {request.display_name}")
         
         @self.client.event
         async def event_party_member_join(member: fortnitepy.PartyMember):

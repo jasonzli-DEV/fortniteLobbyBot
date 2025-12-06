@@ -40,11 +40,11 @@ class UtilityCommands(commands.Cog):
         embed.add_field(
             name="📋 Account Management",
             value=(
-                "`/addaccount` - Add Epic Games account\n"
-                "`/confirmauth <code>` - Complete account setup\n"
-                "`/listaccounts` - Show your accounts\n"
-                "`/removeaccount <username>` - Remove an account\n"
-                "`/testaccount <username>` - Test connection"
+                "`/add-account` - Add Epic Games account\n"
+                "`/confirm-auth <code>` - Complete account setup\n"
+                "`/list-accounts` - Show your accounts\n"
+                "`/remove-account <username>` - Remove an account\n"
+                "`/test-account <username>` - Test connection"
             ),
             inline=False
         )
@@ -52,11 +52,11 @@ class UtilityCommands(commands.Cog):
         embed.add_field(
             name="🎮 Bot Control",
             value=(
-                "`/startbot <username>` - Start a bot\n"
-                "`/stopbot <username>` - Stop a bot\n"
-                "`/startall` - Start all bots\n"
-                "`/stopall` - Stop all bots\n"
-                "`/botstatus [username]` - Check status\n"
+                "`/start-bot <username>` - Start a bot\n"
+                "`/stop-bot <username>` - Stop a bot\n"
+                "`/start-all` - Start all bots\n"
+                "`/stop-all` - Stop all bots\n"
+                "`/bot-status [username]` - Check status\n"
                 "`/extend <username>` - Extend timeout"
             ),
             inline=False
@@ -65,13 +65,13 @@ class UtilityCommands(commands.Cog):
         embed.add_field(
             name="🎨 Cosmetics",
             value=(
-                "`/setskin <username>` - Change outfit\n"
-                "`/setbackbling <username>` - Change back bling\n"
-                "`/setpickaxe <username>` - Change pickaxe\n"
+                "`/set-skin <username>` - Change outfit\n"
+                "`/set-backbling <username>` - Change back bling\n"
+                "`/set-pickaxe <username>` - Change pickaxe\n"
                 "`/emote <username>` - Perform emote\n"
-                "`/setlevel <username> <level>` - Set level (1-200)\n"
-                "`/setcrowns <username> <count>` - Set crown wins\n"
-                "`/synccosmetics <from> <to|all>` - Copy cosmetics"
+                "`/set-level <username> <level>` - Set level (1-200)\n"
+                "`/set-crowns <username> <count>` - Set crown wins\n"
+                "`/sync-cosmetics <from> <to|all>` - Copy cosmetics"
             ),
             inline=False
         )
@@ -79,10 +79,10 @@ class UtilityCommands(commands.Cog):
         embed.add_field(
             name="📦 Presets",
             value=(
-                "`/savepreset <name> <username>` - Save preset\n"
-                "`/loadpreset <name> <username|all>` - Load preset\n"
-                "`/listpresets` - Show presets\n"
-                "`/deletepreset <name>` - Delete preset"
+                "`/save-preset <name> <username>` - Save preset\n"
+                "`/load-preset <name> <username|all>` - Load preset\n"
+                "`/list-presets` - Show presets\n"
+                "`/delete-preset <name>` - Delete preset"
             ),
             inline=False
         )
@@ -104,22 +104,22 @@ class UtilityCommands(commands.Cog):
     async def _show_command_help(self, interaction: discord.Interaction, command: str):
         """Show detailed help for a specific command."""
         command_info = {
-            "addaccount": {
-                "title": "/addaccount",
+            "add-account": {
+                "title": "/add-account",
                 "description": "Add a new Epic Games account using device authentication.",
-                "usage": "/addaccount",
-                "steps": "1. Run the command\n2. Click the authorization link\n3. Log in to Epic Games\n4. Copy the code and use `/confirmauth <code>`"
+                "usage": "/add-account",
+                "steps": "1. Run the command\n2. Click the authorization link\n3. Log in to Epic Games\n4. Copy the code and use `/confirm-auth <code>`"
             },
-            "startbot": {
-                "title": "/startbot",
+            "start-bot": {
+                "title": "/start-bot",
                 "description": "Start a Fortnite lobby bot for a specific account.",
-                "usage": "/startbot <epic_username>",
+                "usage": "/start-bot <epic_username>",
                 "notes": "The bot will automatically accept party invites and friend requests."
             },
-            "setskin": {
-                "title": "/setskin",
+            "set-skin": {
+                "title": "/set-skin",
                 "description": "Change the bot's skin using interactive search.",
-                "usage": "/setskin <epic_username>",
+                "usage": "/set-skin <epic_username>",
                 "notes": "A search modal will appear. Type part of the skin name to find it."
             },
             "extend": {

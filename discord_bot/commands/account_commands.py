@@ -1,4 +1,5 @@
 """Account management Discord commands."""
+import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -13,17 +14,37 @@ from discord_bot.views import ConfirmView, AccountListView
 logger = logging.getLogger(__name__)
 
 
+class CancelAuthButton(discord.ui.View):
+    """View with button to cancel authentication."""
+    
+    def __init__(self, discord_id: str):
+        super().__init__(timeout=600)  # 10 minute timeout
+        self.discord_id = discord_id
+        self.cancelled = False
+    
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="❌")
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Cancel the authentication."""
+        self.cancelled = True
+        device_auth_service.cancel_session(self.discord_id)
+        await interaction.response.edit_message(
+            content="❌ Authentication cancelled.",
+            embed=None,
+            view=None
+        )
+        self.stop()
+
+
 class AccountCommands(commands.Cog):
     """Commands for managing Epic Games accounts."""
     
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.settings = get_settings()
-        self._pending_auth: dict = {}  # discord_id -> auth info
     
-    @app_commands.command(name="addaccount", description="Add an Epic Games account via device auth")
+    @app_commands.command(name="add-account", description="Add an Epic Games account")
     async def add_account(self, interaction: discord.Interaction):
-        """Add a new Epic Games account."""
+        """Add a new Epic Games account using device code flow."""
         discord_id = str(interaction.user.id)
         
         # Check account limit
@@ -31,91 +52,124 @@ class AccountCommands(commands.Cog):
         if account_count >= self.settings.max_accounts_per_user:
             await interaction.response.send_message(
                 f"🚫 Maximum accounts reached ({account_count}/{self.settings.max_accounts_per_user})\n"
-                f"Remove an account with `/removeaccount <username>` to add another.",
+                f"Remove an account with `/remove-account <username>` to add another.",
                 ephemeral=True
             )
             return
+        
+        # Defer the response
+        await interaction.response.defer(ephemeral=True)
         
         # Get or create user
         await db.get_or_create_user(discord_id, interaction.user.name)
         await db.update_user_channel(discord_id, str(interaction.channel_id))
         
-        # Send auth URL
-        auth_url = device_auth_service.get_auth_url()
-        
-        embed = discord.Embed(
-            title="🔐 Add Epic Games Account",
-            description=(
-                "**Step 1:** Click the link below to authorize your Epic Games account\n"
-                "**Step 2:** Log in to Epic Games and authorize the application\n"
-                "**Step 3:** Copy the authorization code from the page\n"
-                "**Step 4:** Use `/confirmauth <code>` to complete setup\n\n"
-                f"[🔗 Click here to authorize]({auth_url})"
-            ),
-            color=discord.Color.blue()
-        )
-        embed.set_footer(text="The authorization code expires in 5 minutes")
-        
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-    
-    @app_commands.command(name="confirmauth", description="Confirm account authorization with the code")
-    @app_commands.describe(code="The authorization code from Epic Games")
-    async def confirm_auth(self, interaction: discord.Interaction, code: str):
-        """Confirm account authorization with the provided code."""
-        discord_id = str(interaction.user.id)
-        
-        await interaction.response.defer(ephemeral=True)
-        
-        # Exchange code for device auth
-        success, credentials, error = await device_auth_service.exchange_code_for_device_auth(code)
+        # Start device code flow
+        success, session, error = await device_auth_service.start_device_code_flow(discord_id)
         
         if not success:
             await interaction.followup.send(
-                f"❌ Failed to authenticate with Epic Games\n{error}\n\nPlease try `/addaccount` again.",
+                f"❌ Failed to start authentication: {error}",
                 ephemeral=True
             )
             return
         
-        # Check if account already exists
-        existing = await db.get_epic_account_by_username(discord_id, credentials["display_name"])
-        if existing:
-            await interaction.followup.send(
-                f"⚠️ Account `{credentials['display_name']}` is already connected!\n"
-                f"Use `/listaccounts` to see your accounts.",
-                ephemeral=True
-            )
-            return
-        
-        # Encrypt and store credentials
-        encrypted = encrypt_credentials(
-            credentials["device_id"],
-            credentials["account_id"],
-            credentials["secret"]
-        )
-        
-        await db.add_epic_account(
-            discord_id=discord_id,
-            epic_username=credentials["display_name"],
-            epic_display_name=credentials["display_name"],
-            epic_account_id=credentials["account_id"],
-            encrypted_credentials=encrypted
-        )
-        
+        # Create embed with the code and link
         embed = discord.Embed(
-            title="✅ Account Added Successfully!",
-            description=f"**Epic Username:** `{credentials['display_name']}`",
-            color=discord.Color.green()
+            title="🔐 Add Epic Games Account",
+            description=(
+                f"**Your Code:** `{session.user_code}`\n\n"
+                f"**Step 1:** Click the link below to open Epic Games\n"
+                f"**Step 2:** Log in if needed\n"
+                f"**Step 3:** Enter the code shown above\n\n"
+                f"[🔗 Click here to enter your code]({session.verification_uri})\n\n"
+                f"⏱️ This code expires in **{session.expires_in // 60} minutes**"
+            ),
+            color=discord.Color.blue()
         )
-        embed.add_field(name="Next Steps", value=(
-            "• Use `/startbot <username>` to start the bot\n"
-            "• Use `/listaccounts` to see all your accounts\n"
-            "• Use `/botstatus` to check bot status"
-        ))
+        embed.set_footer(text="Waiting for you to complete login on Epic Games...")
         
-        await interaction.followup.send(embed=embed, ephemeral=True)
-        logger.info(f"User {discord_id} added account {credentials['display_name']}")
+        # Create cancel button
+        view = CancelAuthButton(discord_id)
+        
+        # Send the message
+        message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        
+        # Start polling in background
+        async def poll_and_update():
+            try:
+                success, credentials, error = await device_auth_service.poll_for_completion(discord_id)
+                
+                if view.cancelled:
+                    return
+                
+                if not success:
+                    error_embed = discord.Embed(
+                        title="❌ Authentication Failed",
+                        description=f"{error}\n\nPlease try `/add-account` again.",
+                        color=discord.Color.red()
+                    )
+                    try:
+                        await interaction.edit_original_response(embed=error_embed, view=None)
+                    except Exception:
+                        pass
+                    return
+                
+                # Check if account already exists
+                existing = await db.get_epic_account_by_username(discord_id, credentials["display_name"])
+                if existing:
+                    warn_embed = discord.Embed(
+                        title="⚠️ Account Already Connected",
+                        description=f"Account `{credentials['display_name']}` is already connected!\nUse `/list-accounts` to see your accounts.",
+                        color=discord.Color.yellow()
+                    )
+                    try:
+                        await interaction.edit_original_response(embed=warn_embed, view=None)
+                    except Exception:
+                        pass
+                    return
+                
+                # Encrypt and store credentials
+                encrypted = encrypt_credentials(
+                    credentials["device_id"],
+                    credentials["account_id"],
+                    credentials["secret"],
+                    credentials.get("client_token")
+                )
+                
+                await db.add_epic_account(
+                    discord_id=discord_id,
+                    epic_username=credentials["display_name"],
+                    epic_display_name=credentials["display_name"],
+                    epic_account_id=credentials["account_id"],
+                    encrypted_credentials=encrypted
+                )
+                
+                success_embed = discord.Embed(
+                    title="✅ Account Added Successfully!",
+                    description=f"**Epic Username:** `{credentials['display_name']}`",
+                    color=discord.Color.green()
+                )
+                success_embed.add_field(name="Next Steps", value=(
+                    "• Use `/start-bot <username>` to start the bot\n"
+                    "• Use `/list-accounts` to see all your accounts\n"
+                    "• Use `/bot-status` to check bot status"
+                ))
+                
+                try:
+                    await interaction.edit_original_response(embed=success_embed, view=None)
+                except Exception:
+                    pass
+                
+                logger.info(f"User {discord_id} added account {credentials['display_name']}")
+                
+            except Exception as e:
+                logger.error(f"Error in poll_and_update: {e}")
+        
+        # Run polling in background
+        asyncio.create_task(poll_and_update())
     
-    @app_commands.command(name="listaccounts", description="Show all your connected Epic accounts")
+    @app_commands.command(name="list-accounts", description="Show all your connected Epic accounts")
     async def list_accounts(self, interaction: discord.Interaction):
         """List all connected Epic accounts."""
         discord_id = str(interaction.user.id)
@@ -125,7 +179,7 @@ class AccountCommands(commands.Cog):
         if not accounts:
             await interaction.response.send_message(
                 "📭 You don't have any connected accounts.\n"
-                "Use `/addaccount` to add your first Epic Games account!",
+                "Use `/add-account` to add your first Epic Games account!",
                 ephemeral=True
             )
             return
@@ -163,7 +217,7 @@ class AccountCommands(commands.Cog):
         view = AccountListView(accounts, on_test, on_remove)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
     
-    @app_commands.command(name="removeaccount", description="Remove an Epic Games account")
+    @app_commands.command(name="remove-account", description="Remove an Epic Games account")
     @app_commands.describe(epic_username="The Epic username to remove")
     async def remove_account(self, interaction: discord.Interaction, epic_username: str):
         """Remove an Epic Games account."""
@@ -178,7 +232,7 @@ class AccountCommands(commands.Cog):
             if not interaction.response.is_done():
                 await interaction.response.send_message(
                     f"❌ Account `{epic_username}` not found.\n"
-                    f"Use `/listaccounts` to see your connected accounts.",
+                    f"Use `/list-accounts` to see your connected accounts.",
                     ephemeral=True
                 )
             else:
@@ -233,7 +287,7 @@ class AccountCommands(commands.Cog):
                 view=None
             )
     
-    @app_commands.command(name="testaccount", description="Test an Epic Games account connection")
+    @app_commands.command(name="test-account", description="Test an Epic Games account connection")
     @app_commands.describe(epic_username="The Epic username to test")
     async def test_account(self, interaction: discord.Interaction, epic_username: str):
         """Test an Epic Games account connection."""
