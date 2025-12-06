@@ -93,6 +93,7 @@ class FortniteBot(commands.Bot):
             "discord_bot.commands.cosmetic_commands",
             "discord_bot.commands.preset_commands",
             "discord_bot.commands.utility_commands",
+            "discord_bot.commands.dashboard_commands",
         ]
         
         for cog in cogs:
@@ -118,13 +119,11 @@ class FortniteBot(commands.Bot):
         self.timeout_monitor = create_timeout_monitor(self)
         await self.timeout_monitor.start()
         
-        logger.info("Bot setup complete!")
-    
     async def on_ready(self):
         """Called when the bot is ready."""
         logger.info(f"Logged in as {self.user} (ID: {self.user.id})")
         logger.info(f"Connected to {len(self.guilds)} guild(s)")
-        
+        logger.info("Bot setup complete!")
         # Set presence
         await self.change_presence(
             activity=discord.Activity(

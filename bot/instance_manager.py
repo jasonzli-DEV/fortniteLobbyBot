@@ -44,8 +44,31 @@ def _patch_fortnitepy_for_android():
     logger.info("Patched fortnitepy for Android client compatibility")
 
 
-# Apply the patch when this module loads
+def _patch_fortnitepy_battlepass():
+    """
+    Patch fortnitepy to handle missing 'selfBoostXp' key in battle pass info.
+    
+    Epic changed the battle pass response format and fortnitepy hasn't updated yet.
+    """
+    import fortnitepy.party as party_module
+    
+    original_battlepass_info = party_module.PartyMemberMeta.battlepass_info.fget
+    
+    def patched_battlepass_info(self):
+        """Return battlepass info with fallback for missing keys."""
+        try:
+            return original_battlepass_info(self)
+        except KeyError:
+            # Return a default battlepass info tuple when keys are missing
+            return (False, 1, 0, 0)
+    
+    party_module.PartyMemberMeta.battlepass_info = property(patched_battlepass_info)
+    logger.info("Patched fortnitepy for battle pass compatibility")
+
+
+# Apply the patches when this module loads
 _patch_fortnitepy_for_android()
+_patch_fortnitepy_battlepass()
 
 # fortniteNewSwitchGameClient - supports device_code flow and works for auth
 SWITCH_CLIENT_ID = "98f7e42c2e3a4f86a74eb43fbb41ed39"
@@ -114,15 +137,7 @@ class FortniteBotInstance:
             
             self.client = fortnitepy.Client(
                 auth=device_auth,
-                default_party_member_config=fortnitepy.DefaultPartyMemberConfig(
-                    meta=(
-                        lambda m: m.set_banner(
-                            icon="OtherBanner28",
-                            color="DefaultColor18",
-                            season_level=100
-                        ),
-                    )
-                )
+                accept_incoming_party_invites=True,  # Auto-accept party invites
             )
             
             # Set up event handlers
@@ -184,10 +199,12 @@ class FortniteBotInstance:
             logger.info(f"Bot {self.epic_username} accepted party invite")
         
         @self.client.event
-        async def event_friend_request(request: fortnitepy.IncomingPendingFriend):
-            await request.accept()
-            await self.update_activity()
-            logger.info(f"Bot {self.epic_username} accepted friend request from {request.display_name}")
+        async def event_friend_request(request):
+            # Only accept incoming friend requests, not outgoing ones
+            if isinstance(request, fortnitepy.IncomingPendingFriend):
+                await request.accept()
+                await self.update_activity()
+                logger.info(f"Bot {self.epic_username} accepted friend request from {request.display_name}")
         
         @self.client.event
         async def event_party_member_join(member: fortnitepy.PartyMember):
@@ -196,6 +213,12 @@ class FortniteBotInstance:
         @self.client.event
         async def event_party_member_leave(member: fortnitepy.PartyMember):
             await self.update_activity()
+        
+        @self.client.event
+        async def event_party_member_update(member: fortnitepy.PartyMember):
+            """Log when party member updates occur (including cosmetics)."""
+            if member.id == self.client.user.id:
+                logger.info(f"Bot {self.epic_username} party member updated - outfit: {member.outfit}, backpack: {member.backpack}")
     
     async def stop(self, reason: str = "manual") -> None:
         """Stop the Fortnite bot client."""
@@ -223,6 +246,9 @@ class FortniteBotInstance:
             # Update session in database
             await db.end_session(self.session_id, reason)
             
+            # Mark account as inactive
+            await db.update_epic_account_status(self.credentials["account_id"], "inactive")
+            
             logger.info(f"Bot {self.epic_username} stopped: {reason}")
             
         except Exception as e:
@@ -232,6 +258,82 @@ class FortniteBotInstance:
         """Update last activity timestamp."""
         self.last_activity = datetime.utcnow()
         await db.update_session_activity(self.session_id)
+    
+    async def set_status(self, status_message: str) -> bool:
+        """Set the bot's status message (shown in Fortnite party)."""
+        try:
+            if not self.is_ready:
+                return False
+            
+            # Set presence with custom status
+            await self.client.set_presence(status=status_message)
+            await self.update_activity()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set status for {self.epic_username}: {e}")
+            return False
+    
+    async def search_users(self, query: str, limit: int = 10) -> list:
+        """Search for Epic Games users by display name."""
+        try:
+            if not self.is_ready:
+                return []
+            
+            # fetch_user fetches a single user by display name or ID
+            user = await self.client.fetch_user(query, cache=False)
+            if user:
+                return [{"id": user.id, "display_name": user.display_name}]
+            return []
+        except Exception as e:
+            logger.error(f"Failed to search users: {e}")
+            return []
+    
+    async def send_friend_request(self, user_id: str) -> tuple[bool, str]:
+        """Send a friend request to a user by their Epic ID."""
+        try:
+            if not self.is_ready:
+                return False, "Bot not ready"
+            
+            # Check if already friends
+            friend = self.client.get_friend(user_id)
+            if friend:
+                return False, f"Already friends with {friend.display_name}"
+            
+            # Check if there's a pending request
+            pending = self.client.get_pending_friend(user_id)
+            if pending:
+                if pending.direction == "INBOUND":
+                    # Accept their request instead
+                    await pending.accept()
+                    return True, f"Accepted friend request from {pending.display_name}"
+                else:
+                    return False, f"Friend request already sent to {pending.display_name}"
+            
+            # Fetch user to validate they exist
+            user = await self.client.fetch_user(user_id)
+            if not user:
+                return False, "User not found"
+            
+            # Send friend request
+            await self.client.add_friend(user_id)
+            await self.update_activity()
+            return True, f"Friend request sent to {user.display_name}"
+            
+        except Exception as e:
+            logger.error(f"Failed to send friend request: {e}")
+            return False, str(e)
+    
+    async def get_friends_list(self) -> list:
+        """Get list of current friends."""
+        try:
+            if not self.is_ready:
+                return []
+            
+            friends = list(self.client.friends)
+            return [{"id": f.id, "display_name": f.display_name, "online": f.is_online()} for f in friends]
+        except Exception as e:
+            logger.error(f"Failed to get friends list: {e}")
+            return []
     
     @property
     def is_running(self) -> bool:
@@ -377,19 +479,20 @@ class BotInstanceManager:
         """
         settings = get_settings()
         account_id_str = str(account_id)
+        is_admin = settings.admin_user_id and discord_id == settings.admin_user_id
         
         async with self._lock:
             # Check if already running
             if account_id_str in self.active_bots:
                 return False, f"Bot `{epic_username}` is already running"
             
-            # Check user limit
+            # Check user limit (skip for admin)
             user_bots = sum(1 for bot in self.active_bots.values() if bot.discord_id == discord_id)
-            if user_bots >= settings.max_concurrent_bots_per_user:
+            if not is_admin and user_bots >= settings.max_concurrent_bots_per_user:
                 return False, f"Maximum concurrent bots reached ({user_bots}/{settings.max_concurrent_bots_per_user})"
             
-            # Check global limit
-            if len(self.active_bots) >= settings.max_concurrent_bots_global:
+            # Check global limit (skip for admin)
+            if not is_admin and len(self.active_bots) >= settings.max_concurrent_bots_global:
                 return False, "Server is at maximum capacity. Please try again later."
             
             try:

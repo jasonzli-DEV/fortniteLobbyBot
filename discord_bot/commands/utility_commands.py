@@ -33,71 +33,37 @@ class UtilityCommands(commands.Cog):
         """Show help for all commands."""
         embed = discord.Embed(
             title="🤖 Fortnite Lobby Bot - Help",
-            description="Control Fortnite bots via Discord commands. All responses are private (ephemeral).",
+            description=(
+                "Control Fortnite bots via Discord. All responses are private.\n\n"
+                "**🚀 Quick Start:** Use `/dashboard` to access the full UI!"
+            ),
             color=discord.Color.blue()
         )
         
         embed.add_field(
-            name="📋 Account Management",
+            name="📊 Main Commands",
             value=(
-                "`/add-account` - Add Epic Games account\n"
-                "`/confirm-auth <code>` - Complete account setup\n"
-                "`/list-accounts` - Show your accounts\n"
-                "`/remove-account <username>` - Remove an account\n"
-                "`/test-account <username>` - Test connection"
-            ),
-            inline=False
-        )
-        
-        embed.add_field(
-            name="🎮 Bot Control",
-            value=(
-                "`/start-bot <username>` - Start a bot\n"
-                "`/stop-bot <username>` - Stop a bot\n"
-                "`/start-all` - Start all bots\n"
-                "`/stop-all` - Stop all bots\n"
-                "`/bot-status [username]` - Check status\n"
-                "`/extend <username>` - Extend timeout"
-            ),
-            inline=False
-        )
-        
-        embed.add_field(
-            name="🎨 Cosmetics",
-            value=(
-                "`/set-skin <username>` - Change outfit\n"
-                "`/set-backbling <username>` - Change back bling\n"
-                "`/set-pickaxe <username>` - Change pickaxe\n"
-                "`/emote <username>` - Perform emote\n"
-                "`/set-level <username> <level>` - Set level (1-200)\n"
-                "`/set-crowns <username> <count>` - Set crown wins\n"
-                "`/sync-cosmetics <from> <to|all>` - Copy cosmetics"
-            ),
-            inline=False
-        )
-        
-        embed.add_field(
-            name="📦 Presets",
-            value=(
-                "`/save-preset <name> <username>` - Save preset\n"
-                "`/load-preset <name> <username|all>` - Load preset\n"
-                "`/list-presets` - Show presets\n"
-                "`/delete-preset <name>` - Delete preset"
-            ),
-            inline=False
-        )
-        
-        embed.add_field(
-            name="🔧 Utility",
-            value=(
-                "`/help [command]` - Show help\n"
-                "`/stats` - Show your statistics\n"
+                "`/dashboard` - **Open control panel** (recommended)\n"
+                "`/admin` - Admin panel (admin only)\n"
+                "`/help` - Show this help message\n"
                 "`/ping` - Check bot latency"
             ),
             inline=False
         )
         
-        embed.set_footer(text="This is a free service! Use /help <command> for detailed info.")
+        embed.add_field(
+            name="💡 Dashboard Features",
+            value=(
+                "• Add/Remove Epic accounts\n"
+                "• Start/Stop bots\n"
+                "• Change skins, emotes, pickaxes\n"
+                "• Set level display\n"
+                "• View all bot statuses"
+            ),
+            inline=False
+        )
+        
+        embed.set_footer(text="Use /dashboard for the best experience!")
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
     

@@ -148,6 +148,11 @@ class DatabaseService:
             {"$set": {"status": status, "last_used": datetime.utcnow()}}
         )
     
+    async def get_epic_account_by_epic_id(self, epic_account_id: str) -> Optional[EpicAccount]:
+        """Get Epic account by Epic account ID (globally, not user-specific)."""
+        account_data = await self.db.epic_accounts.find_one({"epic_account_id": epic_account_id})
+        return EpicAccount(**account_data) if account_data else None
+    
     async def remove_epic_account(self, discord_id: str, epic_username: str) -> bool:
         """Remove an Epic account."""
         result = await self.db.epic_accounts.delete_one({

@@ -84,8 +84,8 @@ class CosmeticSearchService:
     def _map_type(self, api_type: str) -> Optional[str]:
         """Map Fortnite API type to our type."""
         type_mapping = {
-            "outfit": "skin",
-            "backpack": "backbling",
+            "outfit": "outfit",
+            "backpack": "backpack",
             "pickaxe": "pickaxe",
             "emote": "emote",
             "emoji": "emote",

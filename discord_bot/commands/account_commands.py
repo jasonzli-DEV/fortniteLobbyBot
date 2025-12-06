@@ -47,9 +47,10 @@ class AccountCommands(commands.Cog):
         """Add a new Epic Games account using device code flow."""
         discord_id = str(interaction.user.id)
         
-        # Check account limit
+        # Check account limit (skip for admin)
+        is_admin = self.settings.admin_user_id and discord_id == self.settings.admin_user_id
         account_count = await db.count_user_accounts(discord_id)
-        if account_count >= self.settings.max_accounts_per_user:
+        if not is_admin and account_count >= self.settings.max_accounts_per_user:
             await interaction.response.send_message(
                 f"🚫 Maximum accounts reached ({account_count}/{self.settings.max_accounts_per_user})\n"
                 f"Remove an account with `/remove-account <username>` to add another.",
@@ -115,12 +116,13 @@ class AccountCommands(commands.Cog):
                         pass
                     return
                 
-                # Check if account already exists
-                existing = await db.get_epic_account_by_username(discord_id, credentials["display_name"])
-                if existing:
+                # Check if account already exists globally (any user)
+                existing_global = await db.get_epic_account_by_epic_id(credentials["account_id"])
+                if existing_global:
+                    owner = "you" if existing_global.discord_id == discord_id else "another user"
                     warn_embed = discord.Embed(
-                        title="⚠️ Account Already Connected",
-                        description=f"Account `{credentials['display_name']}` is already connected!\nUse `/list-accounts` to see your accounts.",
+                        title="⚠️ Account Already Registered",
+                        description=f"Account `{credentials['display_name']}` is already registered by {owner}!\n\nEach Epic account can only be added once.",
                         color=discord.Color.yellow()
                     )
                     try:
@@ -317,7 +319,7 @@ class AccountCommands(commands.Cog):
         # Decrypt and verify credentials
         try:
             credentials = decrypt_credentials(account.encrypted_credentials)
-            is_valid, error = await device_auth_service.verify_device_auth(
+            is_valid, display_name, error = await device_auth_service.verify_device_auth(
                 credentials["device_id"],
                 credentials["account_id"],
                 credentials["secret"]

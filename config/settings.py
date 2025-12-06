@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     cosmetic_results_per_page: int = Field(25, env="COSMETIC_RESULTS_PER_PAGE")
     cosmetic_cache_refresh_hours: int = Field(24, env="COSMETIC_CACHE_REFRESH_HOURS")
     
+    # Admin Settings
+    admin_user_id: str | None = Field(None, env="ADMIN_USER_ID")
+    
     # System Settings
     environment: str = Field("production", env="ENVIRONMENT")
     log_level: str = Field("INFO", env="LOG_LEVEL")

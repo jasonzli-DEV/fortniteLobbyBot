@@ -60,9 +60,14 @@ class TimeoutMonitor:
         """Check all active sessions for timeouts."""
         active_sessions = await db.get_all_active_sessions()
         warning_threshold = self.settings.timeout_warning_threshold * 60  # Convert to seconds
+        admin_id = self.settings.admin_user_id
         
         for session in active_sessions:
             try:
+                # Skip timeout for admin users (unlimited uptime)
+                if admin_id and session.discord_id == admin_id:
+                    continue
+                
                 remaining = calculate_remaining_seconds(
                     session.last_activity,
                     session.timeout_minutes
