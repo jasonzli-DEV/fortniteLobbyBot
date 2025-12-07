@@ -9,3 +9,4 @@ aiofiles==23.2.1
 lxml==4.9.4
 pymongo==4.9.2
 pytz
+aioconsole>=0.1.15
